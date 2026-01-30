@@ -26,6 +26,19 @@ You have access to sub-agents in [.claude/agents/](.claude/agents/). Please dele
 
 Always prefer MCP tools over manual CLI commands or direct API calls.
 
+### Supabase MCP (`mcp__supabase__*`)
+
+Use for all database operations:
+- `list_tables` - Check existing schema before changes
+- `list_migrations` - Review migration history
+- `apply_migration` - DDL operations (CREATE, ALTER, DROP)
+- `execute_sql` - Queries and DML operations
+- `get_logs` - Debug issues (auth, postgres, edge-function, etc.)
+- `get_advisors` - Check for security/performance issues after DDL changes
+- `generate_typescript_types` - Generate types after schema changes
+
+**Project ID:** `twbyasoxggkjdlhhvpie`
+
 ### GitHub MCP (`mcp__github__*`)
 
 Use for all GitHub operations:
@@ -42,14 +55,14 @@ Use for all GitHub operations:
 
 ## Project Context
 
-- **Platform:** React Native
-- **Backend:** SQLite
-<!-- - **CI/CD:** GitHub Actions
-- **Auth:** Supabase SMS OTP -->
+- **Platform:** React Native (Expo)
+- **Backend:** SQLite (local), Supabase (cloud - when configured)
+<!-- - **CI/CD:** GitHub Actions -->
+<!-- - **Auth:** Supabase SMS OTP -->
 
-<!-- ## Development Workflow
+## Development Workflow
 
 1. Use GitHub MCP to check for related issues before starting work
 2. Use Supabase MCP to understand current schema before database changes
 3. Run `get_advisors` after any DDL changes to catch security issues
-4. Push to `dev` branch triggers automatic TestFlight deployment -->
+<!-- 4. Push to `dev` branch triggers automatic TestFlight deployment -->

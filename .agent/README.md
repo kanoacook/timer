@@ -4,6 +4,16 @@ Welcome to the Study Timer project documentation. This folder contains all criti
 
 ---
 
+## Current Status
+
+**Timer UI + Live Activities Implemented**
+
+- iOS-native styled timer screen with circular buttons
+- Live Activity integration (Lock Screen + Dynamic Island)
+- Full start/pause/resume/stop flow with ActivityKit sync
+
+**To test:** `npx expo start` (simulator) or `npx expo run:ios --device` (physical device for Live Activities)
+
 ## Quick Start
 
 1. **New to the project?** Start with [System/project_architecture.md](System/project_architecture.md)
@@ -88,23 +98,23 @@ A React Native/Expo iOS study timer app that displays a **Live Activity** on the
 
 ### Core Features
 
-| Feature | Description |
-|---------|-------------|
-| Timer UI | Start, pause, resume, stop with session naming |
-| Live Activity | Real-time timer display on Lock Screen |
-| Dynamic Island | Compact, minimal, and expanded views |
-| Session History | SQLite-persisted session records with stats |
-| Edge Cases | Background handling, app kill recovery |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Timer UI | iOS-native styled timer with circular buttons | **Complete** |
+| Live Activity | Real-time timer on Lock Screen | **Complete** |
+| Dynamic Island | Compact, minimal, expanded views | **Complete** |
+| Session History | SQLite-persisted session records with stats | Planned |
+| Edge Cases | Zombie cleanup, graceful degradation | **Complete** |
 
 ### Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| Framework | React Native + Expo |
-| State | Zustand |
-| Database | expo-sqlite |
-| Native Bridge | Expo Modules |
-| iOS Integration | ActivityKit (Swift/SwiftUI) |
+| Component | Technology | Status |
+|-----------|------------|--------|
+| Framework | React Native + Expo | Active |
+| State | React Hooks (useTimer) | Active (Zustand planned) |
+| Database | expo-sqlite | Planned |
+| Native Bridge | Expo Modules | **Implemented** |
+| iOS Integration | ActivityKit (Swift/SwiftUI) | **Implemented** |
 
 ### Requirements
 

@@ -13,38 +13,42 @@ This document tracks the implementation progress of the Study Timer iOS app.
 ### Phase 0: Project Setup
 | Task | Status | Notes |
 |------|--------|-------|
-| Initialize Expo project | Not Started | |
-| Configure TypeScript | Not Started | |
+| Initialize Expo project | Done | Created with Expo SDK |
+| Configure TypeScript | Done | TypeScript enabled by default |
 | Set up ESLint/Prettier | Not Started | |
-| Install core dependencies | Not Started | expo-sqlite, zustand, etc. |
+| Install core dependencies | In Progress | Basic deps installed, expo-sqlite/zustand pending |
 | Configure app.json | Not Started | Bundle ID, permissions |
 | Set up eas.json | Not Started | Build profiles |
 
-### Phase 1: Database Layer
+### Phase 1: Database Layer (Supabase)
 | Task | Status | Notes |
 |------|--------|-------|
-| Set up expo-sqlite | Not Started | |
-| Create database initialization | Not Started | |
-| Implement sessions table schema | Not Started | See data_architecture.md |
-| Implement session_history table | Not Started | |
-| Create CRUD operations | Not Started | |
-| Add database migration support | Not Started | Future-proofing |
+| Set up Supabase project | Done | Project ID: twbyasoxggkjdlhhvpie |
+| Create sessions table | Done | Via migration 20260130000001 |
+| Create session_history table | Done | Via migration 20260130000002 |
+| Set up Supabase client | Done | `src/lib/supabase.ts` |
+| Create session service | Done | `src/services/sessionService.ts` |
+| Implement device ID tracking | Done | `src/lib/deviceId.ts` using AsyncStorage |
+| Integrate with useTimer hook | Done | Sessions logged on start/pause/resume/stop |
+| Add SQL migration folder | Done | `supabase/migrations/` |
 
 ### Phase 2: State Management
 | Task | Status | Notes |
 |------|--------|-------|
-| Set up Zustand store | Not Started | |
-| Define TimerState interface | Not Started | |
-| Implement timer actions | Not Started | start, pause, resume, stop |
+| Set up Zustand store | Not Started | Currently using React hooks |
+| Define TimerState interface | Done | `src/types/timer.ts` |
+| Implement timer actions | Done | useTimer hook: start, pause, resume, stop |
 | Add AsyncStorage persistence | Not Started | For app restart recovery |
 | Handle app lifecycle | Not Started | Background/foreground |
 
 ### Phase 3: UI Components
 | Task | Status | Notes |
 |------|--------|-------|
-| Create Timer Screen | Not Started | Main timer display |
-| Implement circular timer | Not Started | Progress ring animation |
-| Build timer controls | Not Started | Start/Pause/Stop buttons |
+| Create Timer Screen | Done | `src/screens/TimerScreen.tsx` |
+| iOS-native styling | Done | Circular buttons, system colors, SF typography |
+| Build timer controls | Done | iOS Clock-style circular buttons |
+| Build timer display | Done | 76pt ultralight HH:MM:SS |
+| Build session input | Done | iOS Settings-style with label |
 | Add duration presets | Not Started | 25/45/60 min buttons |
 | Create History Screen | Not Started | Session list |
 | Build session cards | Not Started | Individual session display |
@@ -54,21 +58,21 @@ This document tracks the implementation progress of the Study Timer iOS app.
 ### Phase 4: Native Bridge
 | Task | Status | Notes |
 |------|--------|-------|
-| Create Expo module structure | Not Started | |
-| Implement TimerLiveActivityModule.swift | Not Started | |
-| Define TimerActivityAttributes | Not Started | |
-| Create TypeScript interface | Not Started | |
-| Test bidirectional communication | Not Started | |
+| Create Expo module structure | Done | `modules/live-activity/` |
+| Implement LiveActivityModule.swift | Done | `modules/live-activity/ios/LiveActivityModule.swift` |
+| Define StudyTimerAttributes | Done | `ios/StudyTimer/StudyTimerAttributes.swift` |
+| Create TypeScript interface | Done | `modules/live-activity/src/index.ts` |
+| Test bidirectional communication | Not Started | Requires physical device |
 
 ### Phase 5: Live Activity Widget
 | Task | Status | Notes |
 |------|--------|-------|
-| Create widget extension target | Not Started | |
-| Implement lock screen view | Not Started | |
-| Implement Dynamic Island compact | Not Started | |
-| Implement Dynamic Island expanded | Not Started | |
-| Implement Dynamic Island minimal | Not Started | |
-| Handle activity lifecycle | Not Started | |
+| Create widget extension target | Done | `ios/StudyTimerWidgetExtension/` |
+| Implement lock screen view | Done | `StudyTimerLiveActivity.swift` - LockScreenView |
+| Implement Dynamic Island compact | Done | compactLeading + compactTrailing |
+| Implement Dynamic Island expanded | Done | DynamicIslandExpandedRegion |
+| Implement Dynamic Island minimal | Done | Book icon |
+| Handle activity lifecycle | Done | Start/update/end integrated in useTimer |
 
 ### Phase 6: Integration & Polish
 | Task | Status | Notes |
@@ -106,13 +110,28 @@ This document tracks the implementation progress of the Study Timer iOS app.
 
 ## Current Focus
 
-**Phase:** 0 - Project Setup
+**Phase:** 6 - Integration & Polish
+
+**Completed This Session:**
+- Supabase database integration for session logging
+- Created `sessions` and `session_history` tables via migrations
+- Set up Supabase client with TypeScript types
+- Created sessionService for CRUD operations
+- Implemented device ID tracking for anonymous sync
+- Integrated Supabase logging into useTimer hook
+- All timer events now logged to cloud database
+
+**Previous Sessions:**
+- iOS Live Activity implementation (Lock Screen + Dynamic Island)
+- Expo native module for ActivityKit bridge
+- Basic Timer Screen MVP with React hooks
+- iOS-native styling for timer UI
 
 **Next Steps:**
-1. Initialize Expo project with `npx create-expo-app`
-2. Configure TypeScript and linting
-3. Install core dependencies
-4. Set up basic navigation structure
+1. Test full flow on physical iPhone
+2. Implement session history screen (using `getSessionHistory()`)
+3. Add session recovery on app launch (using `getActiveSession()`)
+4. Add proper user authentication for cross-device sync
 
 ---
 

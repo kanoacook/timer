@@ -18,16 +18,17 @@ Build a focus/study timer that:
 
 ## Tech Stack
 
-| Layer | Technology | Version | Purpose |
-|-------|------------|---------|---------|
-| **Framework** | React Native | Latest | Cross-platform mobile development |
-| **Platform Tools** | Expo SDK | 52+ | Development tooling, native module support |
-| **Language (RN)** | TypeScript | 5.x | Type-safe JavaScript |
-| **Language (iOS)** | Swift/SwiftUI | 5.9+ | Native iOS Live Activity implementation |
-| **State Management** | Zustand | 4.x | Lightweight global state |
-| **Local Database** | expo-sqlite | Latest | Persistent session storage |
-| **Native Bridge** | Expo Modules | Latest | React Native <-> Swift communication |
-| **iOS API** | ActivityKit | iOS 16.1+ | Live Activities & Dynamic Island |
+| Layer | Technology | Version | Purpose | Status |
+|-------|------------|---------|---------|--------|
+| **Framework** | React Native | Latest | Cross-platform mobile development | Active |
+| **Platform Tools** | Expo SDK | 54+ | Development tooling, native module support | Active |
+| **Language (RN)** | TypeScript | 5.x | Type-safe JavaScript | Active |
+| **Language (iOS)** | Swift/SwiftUI | 5.9+ | Native iOS Live Activity implementation | Active |
+| **State Management** | React Hooks | - | Timer state via useTimer hook | Active (Zustand planned) |
+| **Cloud Database** | Supabase (PostgreSQL) | - | Session logging & cloud sync | **Implemented** |
+| **Local Storage** | AsyncStorage | - | Device ID persistence | **Implemented** |
+| **Native Bridge** | Expo Modules | Latest | React Native <-> Swift communication | **Implemented** |
+| **iOS API** | ActivityKit | iOS 16.1+ | Live Activities & Dynamic Island | **Implemented** |
 
 ---
 
@@ -84,82 +85,96 @@ Build a focus/study timer that:
 
 ---
 
-## File Structure (Planned)
+## File Structure
+
+### Current Implementation
 
 ```
 timer/
-├── .agent/                         # Documentation & planning
-│   ├── README.md                   # Documentation index
-│   ├── System/                     # Architecture docs
-│   ├── Tasks/                      # Feature PRDs
-│   ├── SOP/                        # Standard procedures
-│   └── Wireframes/                 # UI mockups
+├── App.tsx                         # Entry point - renders TimerScreen
 │
-├── .claude/                        # Claude Code configuration
-│   ├── CLAUDE.md                   # Project instructions
-│   ├── agents/                     # Agent definitions
-│   ├── commands/                   # Custom commands
-│   └── Tasks/                      # Session contexts
+├── src/
+│   ├── screens/
+│   │   └── TimerScreen.tsx         # Main timer screen ✅
+│   ├── components/
+│   │   └── Timer/
+│   │       ├── TimerDisplay.tsx    # iOS-native HH:MM:SS display ✅
+│   │       ├── TimerControls.tsx   # iOS circular buttons ✅
+│   │       └── SessionInput.tsx    # iOS-style input ✅
+│   ├── hooks/
+│   │   └── useTimer.ts             # Timer + Live Activity + Supabase integration ✅
+│   ├── lib/
+│   │   ├── supabase.ts             # Supabase client ✅
+│   │   └── deviceId.ts             # Device ID utility ✅
+│   ├── services/
+│   │   └── sessionService.ts       # Session CRUD operations ✅
+│   ├── types/
+│   │   ├── timer.ts                # TypeScript interfaces ✅
+│   │   └── database.ts             # Supabase TypeScript types ✅
+│   └── utils/
+│       └── time.ts                 # Time formatting ✅
 │
-├── app/                            # Expo Router screens
+├── modules/
+│   └── live-activity/              # Expo Native Module ✅
+│       ├── expo-module.config.json
+│       ├── package.json
+│       ├── ios/
+│       │   └── LiveActivityModule.swift  # ActivityKit bridge
+│       └── src/
+│           ├── index.ts            # TypeScript API
+│           └── LiveActivity.types.ts
+│
+├── plugins/
+│   └── withLiveActivities.js       # Expo config plugin ✅
+│
+├── supabase/
+│   └── migrations/                 # SQL migrations ✅
+│       ├── 20260130000001_create_sessions_table.sql
+│       └── 20260130000002_create_session_history_table.sql
+│
+├── ios/
+│   ├── StudyTimer/
+│   │   ├── AppDelegate.swift
+│   │   ├── Info.plist              # +NSSupportsLiveActivities
+│   │   └── StudyTimerAttributes.swift  # ActivityKit attributes ✅
+│   ├── StudyTimerWidgetExtension/  # Widget Extension ✅
+│   │   ├── Info.plist
+│   │   ├── StudyTimerWidgetBundle.swift
+│   │   └── StudyTimerLiveActivity.swift  # SwiftUI views
+│   └── Podfile
+│
+├── .agent/                         # Documentation
+├── .claude/                        # Claude Code config
+├── app.json                        # +withLiveActivities plugin
+├── package.json
+└── tsconfig.json
+```
+
+### Planned Additions
+
+```
+timer/
+├── app/                            # Expo Router screens (planned)
 │   ├── _layout.tsx                 # Root layout with tabs
-│   ├── index.tsx                   # Timer screen (main)
+│   ├── index.tsx                   # Timer screen
 │   ├── history.tsx                 # Session history
 │   └── settings.tsx                # App settings
 │
 ├── src/
-│   ├── components/                 # Reusable UI components
+│   ├── components/
 │   │   ├── Timer/
-│   │   │   ├── TimerDisplay.tsx    # Circular timer UI
-│   │   │   ├── TimerControls.tsx   # Start/Pause/Stop buttons
-│   │   │   └── DurationPresets.tsx # Quick duration buttons
+│   │   │   └── DurationPresets.tsx # Quick duration buttons (planned)
 │   │   └── History/
-│   │       ├── SessionCard.tsx     # Individual session item
-│   │       └── StatsCards.tsx      # Statistics display
+│   │       ├── SessionCard.tsx     # Session item (planned)
+│   │       └── StatsCards.tsx      # Statistics (planned)
 │   │
-│   ├── store/
-│   │   └── timerStore.ts           # Zustand store definition
+│   ├── store/                      # (planned)
+│   │   └── timerStore.ts           # Zustand store
 │   │
-│   ├── db/
-│   │   ├── database.ts             # SQLite initialization
-│   │   ├── sessions.ts             # Session CRUD operations
-│   │   └── history.ts              # History queries
-│   │
-│   ├── modules/
-│   │   └── TimerLiveActivity.ts    # Native bridge TypeScript interface
-│   │
-│   ├── hooks/
-│   │   ├── useTimer.ts             # Timer logic hook
-│   │   └── useDatabase.ts          # Database hook
-│   │
-│   └── utils/
-│       ├── time.ts                 # Time formatting utilities
-│       └── uuid.ts                 # UUID generation
-│
-├── ios/
-│   ├── timer/                      # Main app target
-│   │   ├── AppDelegate.swift
-│   │   └── Info.plist
-│   │
-│   ├── Modules/                    # Expo Native Modules
-│   │   └── TimerLiveActivity/
-│   │       ├── TimerLiveActivityModule.swift
-│   │       ├── TimerActivityAttributes.swift
-│   │       └── expo-module.config.json
-│   │
-│   └── timerWidget/                # Widget Extension
-│       ├── timerWidgetBundle.swift
-│       ├── timerWidgetLiveActivity.swift
-│       └── Info.plist
-│
-├── plugins/                        # Expo config plugins
-│   └── withLiveActivities.js       # Info.plist configuration
-│
-├── app.json                        # Expo configuration
-├── eas.json                        # EAS Build configuration
-├── package.json                    # Dependencies
-├── tsconfig.json                   # TypeScript config
-└── README.md                       # Project overview
+│   └── db/                         # (planned)
+│       ├── database.ts             # SQLite initialization
+│       ├── sessions.ts             # Session CRUD
+│       └── history.ts              # History queries
 ```
 
 ---
@@ -177,37 +192,110 @@ pauseSession()      → updates timerStatus, saves to SQLite
 stopSession()       → clears session, ends Live Activity
 ```
 
-### 2. Zustand <-> SQLite
+### 2. useTimer <-> Supabase (Implemented)
 
-All session data persists to SQLite:
+All session data persists to Supabase cloud database:
 
-```
-startSession  → INSERT into sessions
-pauseSession  → UPDATE sessions.status + INSERT history event
-stopSession   → UPDATE sessions.end_time, status
-loadHistory   → SELECT from sessions WHERE status='completed'
-```
+```typescript
+// src/services/sessionService.ts
 
-### 3. Zustand <-> Native Bridge
-
-Timer state syncs to Live Activity:
-
-```
-startSession  → TimerLiveActivity.startActivity()
-tick()        → TimerLiveActivity.updateActivity() (throttled)
-pauseSession  → TimerLiveActivity.updateActivity(isPaused: true)
-stopSession   → TimerLiveActivity.endActivity()
+startSession(title)  → createSession() INSERT into sessions
+                     → logSessionEvent() INSERT 'started' + 'activity_started'
+pauseSession()       → updateSessionStatus() UPDATE sessions.status='paused'
+                     → logSessionEvent() INSERT 'paused'
+resumeSession()      → updateSessionStatus() UPDATE sessions.status='active'
+                     → logSessionEvent() INSERT 'resumed'
+stopSession()        → updateSessionStatus() UPDATE sessions.status='completed', end_time
+                     → logSessionEvent() INSERT 'stopped' + 'activity_ended'
 ```
 
-### 4. Native Bridge <-> ActivityKit
+**Device Identification:**
+- `device_id` is generated once and stored in AsyncStorage
+- Used to scope sessions per device for anonymous sync
+- Future: Replace with user auth for cross-device sync
+
+### 3. useTimer <-> Live Activity Module (Implemented)
+
+Timer state syncs to Live Activity via Expo Native Module:
+
+```typescript
+// src/hooks/useTimer.ts integrates with modules/live-activity/
+
+startSession(title)  → LiveActivity.startActivity(sessionId, title)
+tick() every 1s      → LiveActivity.updateActivity(elapsedSeconds, false)
+pauseSession()       → LiveActivity.updateActivity(elapsedSeconds, true)
+stopSession()        → LiveActivity.endActivity()
+
+// Cleanup
+mount              → LiveActivity.endAllActivities()  // zombie prevention
+unmount            → LiveActivity.endActivity()
+```
+
+### 4. Native Bridge <-> ActivityKit (Implemented)
 
 Swift module manages iOS system integration:
 
 ```swift
-startActivity()  → Activity.request(attributes:content:)
-updateActivity() → activity.update(content:)
-endActivity()    → activity.end(dismissalPolicy:)
+// modules/live-activity/ios/LiveActivityModule.swift
+
+startActivity(sessionId, title)     → Activity.request(attributes:content:)
+updateActivity(elapsed, isPaused)   → activity.update(content:)
+endActivity()                       → activity.end(dismissalPolicy:)
+endAllActivities()                  → Activity.activities.forEach { $0.end() }
 ```
+
+### 5. Widget Extension (Implemented)
+
+SwiftUI views for Lock Screen and Dynamic Island:
+
+```
+ios/StudyTimerWidgetExtension/
+├── StudyTimerLiveActivity.swift
+│   ├── LockScreenView         # Full lock screen widget
+│   ├── DynamicIslandCompact   # Compact leading + trailing
+│   ├── DynamicIslandExpanded  # Full expanded view
+│   └── DynamicIslandMinimal   # Single icon
+└── StudyTimerAttributes.swift # Shared with main app
+```
+
+---
+
+## UI Design System
+
+The app uses iOS-native styling patterns to match SwiftUI/UIKit conventions.
+
+### Design Tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| **Primary Green** | `#30D158` | Start, Resume buttons |
+| **Warning Orange** | `#FF9F0A` | Pause button |
+| **Destructive Red** | `#FF3B30` | Stop button |
+| **Secondary Gray** | `#8E8E93` | Labels, placeholders |
+| **Grouped Background** | `#F2F2F7` | Input fields |
+| **Disabled Background** | `#E5E5EA` | Disabled states |
+
+### Typography
+
+| Element | Size | Weight | Notes |
+|---------|------|--------|-------|
+| Timer Display | 76pt | 100 (Ultralight) | System font, tabular-nums |
+| Section Label | 13pt | 500 (Medium) | Uppercase, letter-spacing |
+| Input Text | 17pt | 400 (Regular) | iOS body size |
+| Button Text | 16pt | 500 (Medium) | Circular buttons |
+
+### Components
+
+**Circular Buttons** (iOS Clock app style)
+- 84pt diameter with double-ring design
+- Outer 2pt border ring
+- Inner filled circle (78pt)
+- Color-coded by action
+
+**Session Input** (iOS Settings style)
+- Uppercase "SESSION" label
+- Rounded rect with `#F2F2F7` background
+- No border (cleaner iOS look)
 
 ---
 
