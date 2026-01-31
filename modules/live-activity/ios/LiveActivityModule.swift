@@ -10,7 +10,7 @@ public class LiveActivityModule: Module {
 
         // Check if Live Activities are supported
         Function("isSupported") { () -> Bool in
-            if #available(iOS 16.1, *) {
+            if #available(iOS 16.2, *) {
                 return ActivityAuthorizationInfo().areActivitiesEnabled
             }
             return false
@@ -18,82 +18,83 @@ public class LiveActivityModule: Module {
 
         // Start a new Live Activity
         AsyncFunction("startActivity") { (sessionId: String, title: String) -> [String: Any] in
-            guard #available(iOS 16.1, *) else {
-                return ["success": false, "error": "Live Activities require iOS 16.1+"]
-            }
+            if #available(iOS 16.2, *) {
+                // End any existing activity first
+                await self.endAllActivitiesInternal()
 
-            // End any existing activity first
-            await self.endAllActivitiesInternal()
+                let attributes = StudyTimerAttributes(sessionId: sessionId, title: title)
+                let initialState = StudyTimerAttributes.ContentState(elapsedSeconds: 0, isPaused: false)
 
-            let attributes = StudyTimerAttributes(sessionId: sessionId, title: title)
-            let initialState = StudyTimerAttributes.ContentState(elapsedSeconds: 0, isPaused: false)
-
-            do {
-                let activity = try Activity.request(
-                    attributes: attributes,
-                    content: .init(state: initialState, staleDate: nil),
-                    pushType: nil
-                )
-                self.currentActivityId = activity.id
-                return ["success": true, "activityId": activity.id]
-            } catch {
-                return ["success": false, "error": error.localizedDescription]
+                do {
+                    let activity = try Activity.request(
+                        attributes: attributes,
+                        content: .init(state: initialState, staleDate: nil),
+                        pushType: nil
+                    )
+                    self.currentActivityId = activity.id
+                    return ["success": true, "activityId": activity.id]
+                } catch {
+                    return ["success": false, "error": error.localizedDescription]
+                }
+            } else {
+                return ["success": false, "error": "Live Activities require iOS 16.2+"]
             }
         }
 
         // Update the current Live Activity
         AsyncFunction("updateActivity") { (elapsedSeconds: Int, isPaused: Bool) -> Bool in
-            guard #available(iOS 16.1, *) else {
-                return false
-            }
-
-            guard let activityId = self.currentActivityId else {
-                return false
-            }
-
-            let newState = StudyTimerAttributes.ContentState(
-                elapsedSeconds: elapsedSeconds,
-                isPaused: isPaused
-            )
-
-            // Find the activity by ID
-            for activity in Activity<StudyTimerAttributes>.activities {
-                if activity.id == activityId {
-                    await activity.update(
-                        ActivityContent(state: newState, staleDate: nil)
-                    )
-                    return true
+            if #available(iOS 16.2, *) {
+                guard let activityId = self.currentActivityId else {
+                    return false
                 }
-            }
 
-            return false
+                let newState = StudyTimerAttributes.ContentState(
+                    elapsedSeconds: elapsedSeconds,
+                    isPaused: isPaused
+                )
+
+                // Find the activity by ID
+                for activity in Activity<StudyTimerAttributes>.activities {
+                    if activity.id == activityId {
+                        await activity.update(
+                            ActivityContent(state: newState, staleDate: nil)
+                        )
+                        return true
+                    }
+                }
+                return false
+            } else {
+                return false
+            }
         }
 
         // End the current Live Activity
         AsyncFunction("endActivity") { () -> Bool in
-            guard #available(iOS 16.1, *) else {
-                return false
-            }
-
-            guard let activityId = self.currentActivityId else {
-                return false
-            }
-
-            for activity in Activity<StudyTimerAttributes>.activities {
-                if activity.id == activityId {
-                    await activity.end(nil, dismissalPolicy: .immediate)
-                    self.currentActivityId = nil
-                    return true
+            if #available(iOS 16.2, *) {
+                guard let activityId = self.currentActivityId else {
+                    return false
                 }
-            }
 
-            self.currentActivityId = nil
-            return false
+                for activity in Activity<StudyTimerAttributes>.activities {
+                    if activity.id == activityId {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                        self.currentActivityId = nil
+                        return true
+                    }
+                }
+
+                self.currentActivityId = nil
+                return false
+            } else {
+                return false
+            }
         }
 
         // End all Live Activities (cleanup)
         AsyncFunction("endAllActivities") { () -> Void in
-            await self.endAllActivitiesInternal()
+            if #available(iOS 16.2, *) {
+                await self.endAllActivitiesInternal()
+            }
         }
 
         // Get the current activity state
@@ -102,7 +103,7 @@ public class LiveActivityModule: Module {
         }
     }
 
-    @available(iOS 16.1, *)
+    @available(iOS 16.2, *)
     private func endAllActivitiesInternal() async {
         for activity in Activity<StudyTimerAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)
