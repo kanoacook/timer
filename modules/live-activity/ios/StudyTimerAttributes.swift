@@ -13,10 +13,15 @@ struct StudyTimerAttributes: ActivityAttributes {
         var accumulatedSeconds: Int
         var isPaused: Bool
 
+        /// Adjusted start date for SwiftUI Text(date, style: .timer)
+        /// This represents the "virtual" start time accounting for accumulated seconds
+        var adjustedStartDate: Date {
+            return startDate.addingTimeInterval(-Double(accumulatedSeconds))
+        }
+
         /// Computed timer interval for SwiftUI Text(timerInterval:)
         var timerInterval: ClosedRange<Date> {
-            let adjustedStart = startDate.addingTimeInterval(-Double(accumulatedSeconds))
-            return adjustedStart...Date.distantFuture
+            return adjustedStartDate...Date.distantFuture
         }
     }
 }
