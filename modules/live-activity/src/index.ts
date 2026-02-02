@@ -27,16 +27,18 @@ export function isSupported(): boolean {
  * Start a new Live Activity for a study session
  * @param sessionId - Unique identifier for the session
  * @param title - Display title for the session
+ * @param startTime - Optional JS timestamp (ms) for when the session started
  * @returns Promise with success status, activity ID, and start time if successful
  */
 export async function startActivity(
   sessionId: string,
-  title: string
+  title: string,
+  startTime?: number
 ): Promise<StartActivityResult> {
   if (!LiveActivityModule) {
     return { success: false, error: 'Live Activities not supported on this platform' };
   }
-  return LiveActivityModule.startActivity(sessionId, title);
+  return LiveActivityModule.startActivity(sessionId, title, startTime ?? null);
 }
 
 /**

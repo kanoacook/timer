@@ -6,13 +6,18 @@ Welcome to the Study Timer project documentation. This folder contains all criti
 
 ## Current Status
 
-**Timer UI + Live Activities Implemented**
+**Timer UI + Live Activities + Supabase Implemented**
 
 - iOS-native styled timer screen with circular buttons
 - Live Activity integration (Lock Screen + Dynamic Island)
 - Full start/pause/resume/stop flow with ActivityKit sync
+- Supabase cloud database for session persistence
+- Android build support (timer only, no Live Activities)
 
-**To test:** `npx expo start` (simulator) or `npx expo run:ios --device` (physical device for Live Activities)
+**To test:**
+- iOS: `npx expo run:ios --device` (Live Activities require physical device)
+- Android: `npx expo run:android` (emulator or device)
+- Simulator: `npx expo start` (no Live Activities)
 
 ## Quick Start
 
@@ -71,7 +76,7 @@ Feature PRDs and implementation plans.
 
 | Document | Description |
 |----------|-------------|
-| *(None yet - add as features are planned)* | |
+| [Tasks/context_session_20260130_1540.md](../.claude/Tasks/context_session_20260130_1540.md) | Development session context (Jan 30 - Feb 2) |
 
 ---
 
@@ -110,11 +115,13 @@ A React Native/Expo iOS study timer app that displays a **Live Activity** on the
 
 | Component | Technology | Status |
 |-----------|------------|--------|
-| Framework | React Native + Expo | Active |
+| Framework | React Native 0.81.5 + Expo SDK 54 | Active |
 | State | React Hooks (useTimer) | Active (Zustand planned) |
 | Database | Supabase (PostgreSQL) | **Implemented** |
+| Local Storage | expo-secure-store | **Implemented** |
 | Native Bridge | Expo Modules | **Implemented** |
 | iOS Integration | ActivityKit (Swift/SwiftUI) | **Implemented** |
+| Android | Gradle + Java 17 | **Configured** |
 
 ### Requirements
 
@@ -146,4 +153,4 @@ When updating documentation:
 
 ---
 
-*Last updated: 2026-02-02*
+*Last updated: 2026-02-02 (documentation sync)*

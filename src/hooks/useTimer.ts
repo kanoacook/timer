@@ -48,9 +48,9 @@ export function useTimer(): UseTimerReturn {
       setSessionId(session.id);
     }
 
-    // Start Live Activity
+    // Start Live Activity with the exact same start time
     const activityId = session?.id ?? `local_${Date.now()}`;
-    LiveActivity.startActivity(activityId, title || 'Study Session').catch((error) => {
+    LiveActivity.startActivity(activityId, title || 'Study Session', now).catch((error) => {
       console.warn('Failed to start Live Activity:', error);
     });
 

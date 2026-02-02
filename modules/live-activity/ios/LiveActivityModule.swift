@@ -19,12 +19,19 @@ public class LiveActivityModule: Module {
         }
 
         // Start a new Live Activity
-        AsyncFunction("startActivity") { (sessionId: String, title: String) -> [String: Any] in
+        // Parameters: sessionId, title, startTime (optional JS timestamp in ms)
+        AsyncFunction("startActivity") { (sessionId: String, title: String, startTime: Double?) -> [String: Any] in
             if #available(iOS 16.2, *) {
                 // End any existing activity first
                 await self.endAllActivitiesInternal()
 
-                let startDate = Date()
+                // Use provided startTime or current time
+                let startDate: Date
+                if let jsTimestamp = startTime {
+                    startDate = Date(timeIntervalSince1970: jsTimestamp / 1000)
+                } else {
+                    startDate = Date()
+                }
                 self.sessionStartDate = startDate
 
                 let attributes = StudyTimerAttributes(sessionId: sessionId, title: title)

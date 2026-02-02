@@ -17,8 +17,9 @@ This document tracks the implementation progress of the Study Timer iOS app.
 | Configure TypeScript | ✅ Done | TypeScript enabled by default |
 | Set up ESLint/Prettier | Not Started | |
 | Install core dependencies | ✅ Done | All required deps installed |
-| Configure app.json | ✅ Done | Bundle ID, Live Activity plugin |
+| Configure app.json | ✅ Done | Bundle ID, Live Activity plugin, URL scheme |
 | Set up eas.json | Not Started | Build profiles pending |
+| Android build setup | ✅ Done | local.properties, ANDROID_HOME configured |
 
 ### Phase 1: Database Layer (Supabase)
 | Task | Status | Notes |
@@ -28,9 +29,9 @@ This document tracks the implementation progress of the Study Timer iOS app.
 | Create session_history table | ✅ Done | Via migration 20260130222050 |
 | Set up Supabase client | ✅ Done | `src/lib/supabase.ts` |
 | Create session service | ✅ Done | `src/services/sessionService.ts` |
-| Implement device ID tracking | ✅ Done | `src/lib/deviceId.ts` using AsyncStorage |
+| Implement device ID tracking | ✅ Done | `src/lib/deviceId.ts` using **expo-secure-store** |
 | Integrate with useTimer hook | ✅ Done | Sessions logged on start/pause/resume/stop |
-| RLS policies | ✅ Done | Permissive anonymous access (device_id scoped) |
+| RLS policies | ⚠️ Partial | Permissive policies - needs auth before production |
 
 ### Phase 2: State Management
 | Task | Status | Notes |
@@ -38,7 +39,7 @@ This document tracks the implementation progress of the Study Timer iOS app.
 | Set up Zustand store | Not Started | Currently using React hooks |
 | Define TimerState interface | ✅ Done | `src/types/timer.ts` |
 | Implement timer actions | ✅ Done | useTimer hook: start, pause, resume, stop |
-| Add AsyncStorage persistence | Partial | Device ID persisted, timer state pending |
+| Add SecureStore persistence | ✅ Done | Device ID persisted via expo-secure-store |
 | Handle app lifecycle | Not Started | Background/foreground |
 
 ### Phase 3: UI Components
@@ -85,7 +86,9 @@ This document tracks the implementation progress of the Study Timer iOS app.
 |------|--------|-------|
 | Create Expo config plugin | ✅ Done | `plugins/withLiveActivities.js` |
 | Auto-add NSSupportsLiveActivities | ✅ Done | Via plugin |
-| Auto-configure widget extension | ✅ Done | Plugin adds target, files, build settings |
+| Auto-generate widget extension files | ✅ Done | Plugin creates all Swift files + Info.plist |
+| Auto-configure widget extension target | ⚠️ Partial | Files added, but Xcode compile sources may need manual config |
+| Add URL scheme for deep linking | ✅ Done | `studytimer://` scheme for Live Activity tap |
 | Document build process | ✅ Done | See `SOP/live_activity_build.md` |
 
 ### Phase 7: Integration & Polish
@@ -93,6 +96,8 @@ This document tracks the implementation progress of the Study Timer iOS app.
 |------|--------|-------|
 | End-to-end timer flow | ✅ Done | Timer → Live Activity → Supabase |
 | Track segment start time | ✅ Done | `segmentStartTimeRef` in useTimer |
+| Fix timer sync (Dynamic Island) | ✅ Done | Removed per-second updates; SwiftUI handles counting |
+| Deep link from Live Activity | ✅ Done | `widgetURL` opens app when tapped |
 | Haptic feedback | Not Started | |
 | Animations | Not Started | |
 | Dark mode support | Not Started | (System auto-handles) |
@@ -126,17 +131,11 @@ This document tracks the implementation progress of the Study Timer iOS app.
 **Phase:** 7 - Integration & Polish
 
 **Completed This Session (2026-02-02):**
-- Fixed Live Activity argument mismatch (ContentState sync)
-- Updated all three `StudyTimerAttributes.swift` to use 3-field ContentState:
-  - `startDate: Date`
-  - `accumulatedSeconds: Int`
-  - `isPaused: Bool`
-- Added `timerInterval` computed property for SwiftUI auto-updating timers
-- Updated `LiveActivityModule.swift` to use new ContentState
-- Updated TypeScript API with optional `startTime` parameter
-- Added `segmentStartTimeRef` to useTimer for accurate timing
-- Fixed config plugin to properly add files to widget extension
-- Created comprehensive SOP for Live Activity builds
+- **Timer Sync Fix:** Removed per-second Live Activity updates that caused time drift between app and Dynamic Island. SwiftUI's `Text(timerInterval:)` now handles counting automatically.
+- **Device ID Persistence:** Switched from AsyncStorage to `expo-secure-store` for reliable device ID storage across app restarts.
+- **Plugin Enhancement:** `withLiveActivities.js` now auto-generates all widget extension files (Info.plist, StudyTimerAttributes.swift, StudyTimerWidgetBundle.swift, StudyTimerLiveActivity.swift) during prebuild.
+- **Deep Linking:** Added `studytimer://` URL scheme and `widgetURL` to Live Activity views so tapping opens the app.
+- **Android Support:** Configured Android SDK path (`local.properties`), installed Java 17, set up emulator.
 
 **Previous Sessions:**
 - iOS Live Activity implementation (Lock Screen + Dynamic Island)
@@ -145,40 +144,56 @@ This document tracks the implementation progress of the Study Timer iOS app.
 - iOS-native styling for timer UI
 - Supabase database integration
 
+**Known Issues:**
+1. **Widget Extension Build:** May require manual Xcode configuration to add Swift files to "Compile Sources" build phase
+2. **RLS Policies:** Currently permissive (`USING (true)`) - needs proper auth before production
+3. **Session Recovery:** Orphaned "active" sessions exist in database from app crashes
+
 **Next Steps:**
-1. Create History Screen using `getSessionHistory()`
-2. Add session recovery on app launch using `getActiveSession()`
-3. Implement Zustand for state management
-4. Add proper user authentication for cross-device sync
-5. Set up EAS build configuration
+1. Fix widget extension Xcode configuration (or document manual steps)
+2. Create History Screen using `getSessionHistory()`
+3. Add session recovery on app launch using `getActiveSession()`
+4. Implement Zustand for state management
+5. Add proper user authentication for cross-device sync
+6. Set up EAS build configuration
 
 ---
 
 ## Database Schema
 
-### sessions (15 rows)
+### sessions (34 rows)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID | Primary key |
 | device_id | TEXT | Device identifier |
 | title | TEXT | Session name |
-| duration_seconds | INTEGER | Total duration |
+| duration_seconds | INTEGER | Total duration (default: 0) |
 | start_time | TIMESTAMPTZ | When started |
 | end_time | TIMESTAMPTZ | When ended (nullable) |
 | status | TEXT | active/paused/completed/cancelled |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
 
-### session_history (66 rows)
+### session_history (134 rows)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID | Primary key |
 | session_id | UUID | FK to sessions |
 | event_type | TEXT | started/paused/resumed/stopped/activity_* |
 | event_time | TIMESTAMPTZ | When event occurred |
-| elapsed_at_event | INTEGER | Seconds at event |
+| elapsed_at_event | INTEGER | Seconds at event (default: 0) |
 | metadata | JSONB | Extra data (nullable) |
 | created_at | TIMESTAMPTZ | |
+
+### Security Advisors (⚠️ Warnings)
+| Issue | Table | Details |
+|-------|-------|---------|
+| Permissive RLS | sessions | `Allow anonymous insert` uses `WITH CHECK (true)` |
+| Permissive RLS | sessions | `Allow update own sessions` uses `USING (true)` |
+| Permissive RLS | session_history | `Allow anonymous insert` uses `WITH CHECK (true)` |
+| Function search_path | public | `update_updated_at_column` has mutable search_path |
+
+**Remediation:** Implement proper user authentication and scope RLS policies to `auth.uid()`
 
 ---
 

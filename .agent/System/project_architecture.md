@@ -20,15 +20,31 @@ Build a focus/study timer that:
 
 | Layer | Technology | Version | Purpose | Status |
 |-------|------------|---------|---------|--------|
-| **Framework** | React Native | Latest | Cross-platform mobile development | Active |
-| **Platform Tools** | Expo SDK | 54+ | Development tooling, native module support | Active |
-| **Language (RN)** | TypeScript | 5.x | Type-safe JavaScript | Active |
+| **Framework** | React Native | 0.81.5 | Cross-platform mobile development | Active |
+| **Platform Tools** | Expo SDK | 54.0.32 | Development tooling, native module support | Active |
+| **Language (RN)** | TypeScript | 5.9.2 | Type-safe JavaScript | Active |
 | **Language (iOS)** | Swift/SwiftUI | 5.9+ | Native iOS Live Activity implementation | Active |
 | **State Management** | React Hooks | - | Timer state via useTimer hook | Active (Zustand planned) |
 | **Cloud Database** | Supabase (PostgreSQL) | - | Session logging & cloud sync | **Implemented** |
-| **Local Storage** | AsyncStorage | - | Device ID persistence | **Implemented** |
+| **Local Storage** | expo-secure-store | 15.0.8 | Device ID persistence (Keychain) | **Implemented** |
 | **Native Bridge** | Expo Modules | Latest | React Native <-> Swift communication | **Implemented** |
 | **iOS API** | ActivityKit | iOS 16.1+ | Live Activities & Dynamic Island | **Implemented** |
+
+### Dependencies
+
+```json
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.93.3",
+    "expo": "~54.0.32",
+    "expo-dev-client": "~6.0.20",
+    "expo-secure-store": "~15.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  }
+}
+```
 
 ---
 
@@ -213,7 +229,8 @@ stopSession()        → updateSessionStatus() UPDATE sessions.status='completed
 ```
 
 **Device Identification:**
-- `device_id` is generated once and stored in AsyncStorage
+- `device_id` is generated once and stored in **expo-secure-store** (iOS Keychain)
+- Survives app reinstalls (unlike AsyncStorage)
 - Used to scope sessions per device for anonymous sync
 - Future: Replace with user auth for cross-device sync
 
@@ -227,8 +244,7 @@ Timer state syncs to Live Activity via Expo Native Module:
 startSession(title)  → LiveActivity.startActivity(sessionId, title)
                       // Returns { success, activityId, startTime }
 
-tick() every 1s      → LiveActivity.updateActivity(accumulatedSeconds, false, segmentStartTime)
-                      // Uses timerInterval for auto-updating SwiftUI Text
+// NO per-second updates! SwiftUI Text(timerInterval:) handles auto-counting
 
 pauseSession()       → LiveActivity.updateActivity(accumulatedSeconds, true)
                       // Shows static time, sets isPaused = true
@@ -357,29 +373,21 @@ npx expo run:ios --device
 ### Full Rebuild (After Major Changes)
 
 ```bash
-# 1. Clean and create base iOS project
-rm -rf ios
-npx expo prebuild --clean --platform ios
+# 1. Clean everything
+rm -rf ios android node_modules
 
-# 2. Create widget extension directory and files
-mkdir -p ios/StudyTimerWidgetExtension
+# 2. Reinstall dependencies
+npm install
 
-# 3. Copy widget files (see SOP/live_activity_build.md for file contents)
-# - StudyTimerAttributes.swift (copy from modules/live-activity/ios/)
-# - StudyTimerWidgetBundle.swift
-# - StudyTimerLiveActivity.swift
-# - Info.plist
+# 3. Generate native projects (plugin auto-creates widget extension files)
+npx expo prebuild --clean
 
-# 4. Also copy attributes to main app
-cp modules/live-activity/ios/StudyTimerAttributes.swift ios/StudyTimer/
-
-# 5. Run prebuild again to configure widget extension
-npx expo prebuild --platform ios
-
-# 6. Install pods and build
-cd ios && pod install && cd ..
-npx expo run:ios --device
+# 4. Build and run
+npx expo run:ios --device  # iOS (Live Activities require physical device)
+npx expo run:android       # Android (no Live Activities)
 ```
+
+**Note:** The `withLiveActivities.js` plugin now auto-generates all widget extension files during prebuild. If the widget extension doesn't compile, you may need to manually add the Swift files to the "Compile Sources" build phase in Xcode.
 
 ### Development Server (Simulator Only)
 
@@ -422,4 +430,29 @@ eas build --profile preview --platform ios
 
 ---
 
-*Last updated: 2026-01-30*
+## Android Support
+
+Android builds are supported but **Live Activities are iOS-only**. The timer functionality works on Android; the `LiveActivity` module calls gracefully no-op.
+
+### Android Setup Requirements
+
+```bash
+# Environment variables (~/.zshrc)
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH"
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+
+# Create local.properties (auto-generated, or manual)
+echo "sdk.dir=$HOME/Library/Android/sdk" > android/local.properties
+```
+
+### Android Build
+
+```bash
+# Start emulator from Android Studio Virtual Device Manager, then:
+npx expo run:android
+```
+
+---
+
+*Last updated: 2026-02-02*
