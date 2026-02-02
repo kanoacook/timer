@@ -4,7 +4,7 @@ import ActivityKit
 public class LiveActivityModule: Module {
     // Keep track of the current activity
     private var currentActivityId: String?
-    // Store the start date for the current session
+    // Store the absolute session start date (from Supabase)
     private var sessionStartDate: Date?
 
     public func definition() -> ModuleDefinition {
@@ -19,13 +19,13 @@ public class LiveActivityModule: Module {
         }
 
         // Start a new Live Activity
-        // Parameters: sessionId, title, startTime (optional JS timestamp in ms)
+        // Parameters: sessionId, title, startTime (JS timestamp in ms - from Supabase session start_time)
         AsyncFunction("startActivity") { (sessionId: String, title: String, startTime: Double?) -> [String: Any] in
             if #available(iOS 16.2, *) {
                 // End any existing activity first
                 await self.endAllActivitiesInternal()
 
-                // Use provided startTime or current time
+                // Use provided startTime (from Supabase) or current time
                 let startDate: Date
                 if let jsTimestamp = startTime {
                     startDate = Date(timeIntervalSince1970: jsTimestamp / 1000)
@@ -37,7 +37,7 @@ public class LiveActivityModule: Module {
                 let attributes = StudyTimerAttributes(sessionId: sessionId, title: title)
                 let initialState = StudyTimerAttributes.ContentState(
                     startDate: startDate,
-                    accumulatedSeconds: 0,
+                    totalPausedSeconds: 0,
                     isPaused: false
                 )
 
@@ -62,27 +62,21 @@ public class LiveActivityModule: Module {
         }
 
         // Update the current Live Activity
-        // Parameters: accumulatedSeconds, isPaused, startTime (optional JS timestamp in ms)
-        AsyncFunction("updateActivity") { (accumulatedSeconds: Int, isPaused: Bool, startTime: Double?) -> Bool in
+        // Parameters: totalPausedSeconds (total time spent paused), isPaused, startTime (optional - for when paused, we pass accumulated elapsed)
+        AsyncFunction("updateActivity") { (totalPausedSeconds: Int, isPaused: Bool, startTime: Double?) -> Bool in
             if #available(iOS 16.2, *) {
                 guard let activityId = self.currentActivityId else {
                     return false
                 }
 
-                // Use provided startTime or fall back to stored session start date
-                let startDate: Date
-                if let jsTimestamp = startTime {
-                    startDate = Date(timeIntervalSince1970: jsTimestamp / 1000)
-                } else if let stored = self.sessionStartDate {
-                    startDate = stored
-                } else {
-                    // Fallback: calculate from accumulated seconds
-                    startDate = Date().addingTimeInterval(-Double(accumulatedSeconds))
+                // Always use stored session start date (the absolute start from Supabase)
+                guard let startDate = self.sessionStartDate else {
+                    return false
                 }
 
                 let newState = StudyTimerAttributes.ContentState(
                     startDate: startDate,
-                    accumulatedSeconds: accumulatedSeconds,
+                    totalPausedSeconds: totalPausedSeconds,
                     isPaused: isPaused
                 )
 

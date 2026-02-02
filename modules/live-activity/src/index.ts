@@ -43,18 +43,18 @@ export async function startActivity(
 
 /**
  * Update the current Live Activity state
- * @param accumulatedSeconds - Total accumulated seconds
+ * @param totalPausedSeconds - Total seconds spent in paused state
  * @param isPaused - Whether the timer is currently paused
- * @param startTime - Optional JS timestamp (ms) for when the current running segment started
+ * @param _startTime - Deprecated, no longer used (session start time is stored internally)
  * @returns Promise resolving to true if update was successful
  */
 export async function updateActivity(
-  accumulatedSeconds: number,
+  totalPausedSeconds: number,
   isPaused: boolean,
-  startTime?: number
+  _startTime?: number
 ): Promise<boolean> {
   if (!LiveActivityModule) return false;
-  return LiveActivityModule.updateActivity(accumulatedSeconds, isPaused, startTime ?? null);
+  return LiveActivityModule.updateActivity(totalPausedSeconds, isPaused, null);
 }
 
 /**

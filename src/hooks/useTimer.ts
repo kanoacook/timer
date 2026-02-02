@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import type { TimerStatus, TimerState, TimerActions } from '../types/timer';
 import * as LiveActivity from '../../modules/live-activity/src';
 import {
@@ -22,8 +23,13 @@ export function useTimer(): UseTimerReturn {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const elapsedRef = useRef<number>(0); // Track elapsed for async operations
-  // Track when the current running segment started (for Live Activity timer calculations)
-  const segmentStartTimeRef = useRef<number | null>(null);
+
+  // Absolute session start time from Supabase (source of truth)
+  const sessionStartTimeRef = useRef<number | null>(null);
+  // Total seconds spent in paused state
+  const totalPausedSecondsRef = useRef<number>(0);
+  // When the current pause began (null if not paused)
+  const pauseStartTimeRef = useRef<number | null>(null);
 
   const clearTimerInterval = useCallback(() => {
     if (intervalRef.current) {
@@ -37,20 +43,26 @@ export function useTimer(): UseTimerReturn {
     setTimerStatus('running');
     setElapsedSeconds(0);
     elapsedRef.current = 0;
+    totalPausedSecondsRef.current = 0;
+    pauseStartTimeRef.current = null;
 
-    const now = Date.now();
-    segmentStartTimeRef.current = now;
-
-    // Create session in Supabase
+    // Create session in Supabase - this is our source of truth
     const session = await createSession(title || 'Study Session');
+
+    // Use Supabase start_time as the absolute source of truth
+    const startTimeMs = session
+      ? new Date(session.start_time).getTime()
+      : Date.now();
+    sessionStartTimeRef.current = startTimeMs;
+
     if (session) {
       sessionIdRef.current = session.id;
       setSessionId(session.id);
     }
 
-    // Start Live Activity with the exact same start time
+    // Start Live Activity with the Supabase start time
     const activityId = session?.id ?? `local_${Date.now()}`;
-    LiveActivity.startActivity(activityId, title || 'Study Session', now).catch((error) => {
+    LiveActivity.startActivity(activityId, title || 'Study Session', startTimeMs).catch((error) => {
       console.warn('Failed to start Live Activity:', error);
     });
 
@@ -60,11 +72,14 @@ export function useTimer(): UseTimerReturn {
     }
 
     clearTimerInterval();
-    let currentElapsed = 0;
     intervalRef.current = setInterval(() => {
-      currentElapsed += 1;
-      elapsedRef.current = currentElapsed;
-      setElapsedSeconds(currentElapsed);
+      // Calculate elapsed from absolute start time minus paused time
+      if (sessionStartTimeRef.current !== null) {
+        const now = Date.now();
+        const elapsed = Math.floor((now - sessionStartTimeRef.current) / 1000) - totalPausedSecondsRef.current;
+        elapsedRef.current = elapsed;
+        setElapsedSeconds(elapsed);
+      }
       // Note: Don't update Live Activity every second - SwiftUI Text(timerInterval:) handles counting automatically
     }, 1000);
   }, [clearTimerInterval]);
@@ -74,11 +89,11 @@ export function useTimer(): UseTimerReturn {
     setTimerStatus('paused');
     clearTimerInterval();
 
-    // Clear segment start time since we're paused
-    segmentStartTimeRef.current = null;
+    // Record when this pause started
+    pauseStartTimeRef.current = Date.now();
 
-    // Update Live Activity to show paused state (no startTime needed when paused)
-    LiveActivity.updateActivity(currentElapsed, true).catch((error) => {
+    // Update Live Activity to show paused state with current totalPausedSeconds
+    LiveActivity.updateActivity(totalPausedSecondsRef.current, true).catch((error) => {
       console.warn('Failed to update Live Activity (pause):', error);
     });
 
@@ -90,18 +105,24 @@ export function useTimer(): UseTimerReturn {
   }, [clearTimerInterval]);
 
   const resumeSession = useCallback(async () => {
-    const currentElapsed = elapsedRef.current;
     setTimerStatus('running');
 
-    // Set new segment start time for resumed session
-    // The segment start time needs to be adjusted to account for already accumulated time
-    const now = Date.now();
-    segmentStartTimeRef.current = now;
+    // Add the pause duration to total paused seconds
+    if (pauseStartTimeRef.current !== null) {
+      const pauseDuration = Math.floor((Date.now() - pauseStartTimeRef.current) / 1000);
+      totalPausedSecondsRef.current += pauseDuration;
+      pauseStartTimeRef.current = null;
+    }
 
-    // Update Live Activity to show running state with new segment start time
-    LiveActivity.updateActivity(currentElapsed, false, now).catch((error) => {
+    // Update Live Activity to show running state with updated totalPausedSeconds
+    LiveActivity.updateActivity(totalPausedSecondsRef.current, false).catch((error) => {
       console.warn('Failed to update Live Activity (resume):', error);
     });
+
+    // Calculate current elapsed for Supabase update
+    const currentElapsed = sessionStartTimeRef.current !== null
+      ? Math.floor((Date.now() - sessionStartTimeRef.current) / 1000) - totalPausedSecondsRef.current
+      : elapsedRef.current;
 
     // Update session status in Supabase
     if (sessionIdRef.current) {
@@ -109,11 +130,14 @@ export function useTimer(): UseTimerReturn {
       await logSessionEvent(sessionIdRef.current, 'resumed', currentElapsed);
     }
 
-    let elapsed = currentElapsed;
     intervalRef.current = setInterval(() => {
-      elapsed += 1;
-      elapsedRef.current = elapsed;
-      setElapsedSeconds(elapsed);
+      // Calculate elapsed from absolute start time minus paused time
+      if (sessionStartTimeRef.current !== null) {
+        const now = Date.now();
+        const elapsed = Math.floor((now - sessionStartTimeRef.current) / 1000) - totalPausedSecondsRef.current;
+        elapsedRef.current = elapsed;
+        setElapsedSeconds(elapsed);
+      }
       // Note: Don't update Live Activity every second - SwiftUI Text(timerInterval:) handles counting automatically
     }, 1000);
   }, []);
@@ -138,7 +162,9 @@ export function useTimer(): UseTimerReturn {
     setSessionId(null);
     sessionIdRef.current = null;
     elapsedRef.current = 0;
-    segmentStartTimeRef.current = null;
+    sessionStartTimeRef.current = null;
+    totalPausedSecondsRef.current = 0;
+    pauseStartTimeRef.current = null;
 
     // End Live Activity
     LiveActivity.endActivity().catch((error) => {
@@ -161,6 +187,33 @@ export function useTimer(): UseTimerReturn {
       });
     };
   }, [clearTimerInterval]);
+
+  // Recalculate elapsed time when app returns to foreground
+  // This ensures the timer stays in sync even if JS execution was suspended
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && sessionStartTimeRef.current !== null) {
+        // App came to foreground - recalculate elapsed from absolute times
+        const now = Date.now();
+
+        if (timerStatus === 'running') {
+          // Running: calculate elapsed = (now - start) - totalPaused
+          const elapsed = Math.floor((now - sessionStartTimeRef.current) / 1000) - totalPausedSecondsRef.current;
+          elapsedRef.current = elapsed;
+          setElapsedSeconds(elapsed);
+        } else if (timerStatus === 'paused' && pauseStartTimeRef.current !== null) {
+          // Paused: calculate elapsed at the moment of pause
+          // Don't update totalPausedSeconds yet - that happens on resume
+          const elapsedAtPause = Math.floor((pauseStartTimeRef.current - sessionStartTimeRef.current) / 1000) - totalPausedSecondsRef.current;
+          elapsedRef.current = elapsedAtPause;
+          setElapsedSeconds(elapsedAtPause);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [timerStatus]);
 
   return {
     currentSession: null, // Can be populated from getActiveSession if needed
