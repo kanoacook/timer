@@ -1,4 +1,8 @@
-// In-memory cache for device ID (persists for app session)
+import * as SecureStore from 'expo-secure-store';
+
+const DEVICE_ID_KEY = 'studytimer_device_id';
+
+// In-memory cache for device ID
 let cachedDeviceId: string | null = null;
 
 /**
@@ -12,14 +16,35 @@ function generateDeviceId(): string {
 
 /**
  * Get or create a unique device ID for this device.
- * Currently uses in-memory storage (ID persists for app session only).
- * TODO: Add persistent storage when running dev build with native modules.
+ * Persists to SecureStore so it survives app restarts.
  */
 export async function getDeviceId(): Promise<string> {
-  if (!cachedDeviceId) {
-    cachedDeviceId = generateDeviceId();
+  // Return cached value if available
+  if (cachedDeviceId) {
+    return cachedDeviceId;
   }
-  return cachedDeviceId;
+
+  try {
+    // Try to load from persistent storage
+    const storedId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+    if (storedId) {
+      cachedDeviceId = storedId;
+      return storedId;
+    }
+
+    // Generate new ID and persist it
+    const newId = generateDeviceId();
+    await SecureStore.setItemAsync(DEVICE_ID_KEY, newId);
+    cachedDeviceId = newId;
+    return newId;
+  } catch (error) {
+    // Fallback to in-memory only if SecureStore fails
+    console.warn('Failed to persist device ID:', error);
+    if (!cachedDeviceId) {
+      cachedDeviceId = generateDeviceId();
+    }
+    return cachedDeviceId;
+  }
 }
 
 /**
@@ -27,4 +52,9 @@ export async function getDeviceId(): Promise<string> {
  */
 export async function clearDeviceId(): Promise<void> {
   cachedDeviceId = null;
+  try {
+    await SecureStore.deleteItemAsync(DEVICE_ID_KEY);
+  } catch (error) {
+    console.warn('Failed to clear device ID:', error);
+  }
 }

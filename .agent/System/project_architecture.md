@@ -119,7 +119,8 @@ timer/
 │       ├── expo-module.config.json
 │       ├── package.json
 │       ├── ios/
-│       │   └── LiveActivityModule.swift  # ActivityKit bridge
+│       │   ├── LiveActivityModule.swift  # ActivityKit bridge
+│       │   └── StudyTimerAttributes.swift # ContentState definition (SOURCE OF TRUTH)
 │       └── src/
 │           ├── index.ts            # TypeScript API
 │           └── LiveActivity.types.ts
@@ -132,16 +133,18 @@ timer/
 │       ├── 20260130000001_create_sessions_table.sql
 │       └── 20260130000002_create_session_history_table.sql
 │
-├── ios/
+├── ios/                            # GENERATED - do not commit
 │   ├── StudyTimer/
 │   │   ├── AppDelegate.swift
-│   │   ├── Info.plist              # +NSSupportsLiveActivities
-│   │   └── StudyTimerAttributes.swift  # ActivityKit attributes ✅
+│   │   ├── Info.plist              # +NSSupportsLiveActivities (via plugin)
+│   │   └── StudyTimerAttributes.swift  # Copy of ContentState ✅
 │   ├── StudyTimerWidgetExtension/  # Widget Extension ✅
 │   │   ├── Info.plist
-│   │   ├── StudyTimerWidgetBundle.swift
+│   │   ├── StudyTimerAttributes.swift  # Copy of ContentState (must match module)
+│   │   ├── StudyTimerWidgetBundle.swift  # @main entry point
 │   │   └── StudyTimerLiveActivity.swift  # SwiftUI views
-│   └── Podfile
+│   ├── Podfile
+│   └── StudyTimer.xcworkspace      # Open this in Xcode
 │
 ├── .agent/                         # Documentation
 ├── .claude/                        # Claude Code config
@@ -222,14 +225,29 @@ Timer state syncs to Live Activity via Expo Native Module:
 // src/hooks/useTimer.ts integrates with modules/live-activity/
 
 startSession(title)  → LiveActivity.startActivity(sessionId, title)
-tick() every 1s      → LiveActivity.updateActivity(elapsedSeconds, false)
-pauseSession()       → LiveActivity.updateActivity(elapsedSeconds, true)
+                      // Returns { success, activityId, startTime }
+
+tick() every 1s      → LiveActivity.updateActivity(accumulatedSeconds, false, segmentStartTime)
+                      // Uses timerInterval for auto-updating SwiftUI Text
+
+pauseSession()       → LiveActivity.updateActivity(accumulatedSeconds, true)
+                      // Shows static time, sets isPaused = true
+
+resumeSession()      → LiveActivity.updateActivity(accumulatedSeconds, false, newSegmentStartTime)
+                      // Resumes auto-updating timer
+
 stopSession()        → LiveActivity.endActivity()
 
 // Cleanup
 mount              → LiveActivity.endAllActivities()  // zombie prevention
 unmount            → LiveActivity.endActivity()
 ```
+
+**ContentState Fields:**
+- `startDate: Date` - When current running segment started
+- `accumulatedSeconds: Int` - Total accumulated time
+- `isPaused: Bool` - Controls timer vs static display
+- `timerInterval` (computed) - For SwiftUI `Text(timerInterval:)`
 
 ### 4. Native Bridge <-> ActivityKit (Implemented)
 
@@ -238,11 +256,20 @@ Swift module manages iOS system integration:
 ```swift
 // modules/live-activity/ios/LiveActivityModule.swift
 
+isSupported()                       → ActivityAuthorizationInfo().areActivitiesEnabled
 startActivity(sessionId, title)     → Activity.request(attributes:content:)
-updateActivity(elapsed, isPaused)   → activity.update(content:)
-endActivity()                       → activity.end(dismissalPolicy:)
+                                     // Stores sessionStartDate for timing
+updateActivity(accumulatedSeconds,  → activity.update(ActivityContent(state:))
+              isPaused, startTime?) // startTime as JS timestamp (ms)
+endActivity()                       → activity.end(dismissalPolicy: .immediate)
 endAllActivities()                  → Activity.activities.forEach { $0.end() }
 ```
+
+**Key Implementation Details:**
+- Uses `@available(iOS 16.2, *)` checks
+- Stores `sessionStartDate` for accurate timer calculations
+- Converts JS timestamps to Swift `Date` (divide by 1000)
+- Falls back gracefully on unsupported devices
 
 ### 5. Widget Extension (Implemented)
 
@@ -317,21 +344,70 @@ The app uses iOS-native styling patterns to match SwiftUI/UIKit conventions.
 
 ## Build & Run Commands
 
+### Quick Start (Existing Project)
+
 ```bash
 # Install dependencies
 npm install
 
-# Start development server
-npx expo start
+# Build and run on connected device
+npx expo run:ios --device
+```
 
-# Generate native project
+### Full Rebuild (After Major Changes)
+
+```bash
+# 1. Clean and create base iOS project
+rm -rf ios
+npx expo prebuild --clean --platform ios
+
+# 2. Create widget extension directory and files
+mkdir -p ios/StudyTimerWidgetExtension
+
+# 3. Copy widget files (see SOP/live_activity_build.md for file contents)
+# - StudyTimerAttributes.swift (copy from modules/live-activity/ios/)
+# - StudyTimerWidgetBundle.swift
+# - StudyTimerLiveActivity.swift
+# - Info.plist
+
+# 4. Also copy attributes to main app
+cp modules/live-activity/ios/StudyTimerAttributes.swift ios/StudyTimer/
+
+# 5. Run prebuild again to configure widget extension
 npx expo prebuild --platform ios
 
-# Run on device from Xcode
-open ios/*.xcworkspace
+# 6. Install pods and build
+cd ios && pod install && cd ..
+npx expo run:ios --device
+```
 
-# Build with EAS
+### Development Server (Simulator Only)
+
+```bash
+# Start Metro bundler (no native features)
+npx expo start
+
+# For Live Activities, MUST use physical device
+npx expo run:ios --device
+```
+
+### Xcode Direct Build
+
+```bash
+# Open workspace in Xcode
+open ios/StudyTimer.xcworkspace
+
+# Then: Select device → Product → Run (⌘R)
+```
+
+### EAS Cloud Build
+
+```bash
+# Build development build
 eas build --profile development --platform ios
+
+# Build for TestFlight
+eas build --profile preview --platform ios
 ```
 
 ---

@@ -22,6 +22,8 @@ export function useTimer(): UseTimerReturn {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const elapsedRef = useRef<number>(0); // Track elapsed for async operations
+  // Track when the current running segment started (for Live Activity timer calculations)
+  const segmentStartTimeRef = useRef<number | null>(null);
 
   const clearTimerInterval = useCallback(() => {
     if (intervalRef.current) {
@@ -35,6 +37,9 @@ export function useTimer(): UseTimerReturn {
     setTimerStatus('running');
     setElapsedSeconds(0);
     elapsedRef.current = 0;
+
+    const now = Date.now();
+    segmentStartTimeRef.current = now;
 
     // Create session in Supabase
     const session = await createSession(title || 'Study Session');
@@ -60,11 +65,7 @@ export function useTimer(): UseTimerReturn {
       currentElapsed += 1;
       elapsedRef.current = currentElapsed;
       setElapsedSeconds(currentElapsed);
-
-      // Update Live Activity every second
-      LiveActivity.updateActivity(currentElapsed, false).catch((error) => {
-        console.warn('Failed to update Live Activity:', error);
-      });
+      // Note: Don't update Live Activity every second - SwiftUI Text(timerInterval:) handles counting automatically
     }, 1000);
   }, [clearTimerInterval]);
 
@@ -73,7 +74,10 @@ export function useTimer(): UseTimerReturn {
     setTimerStatus('paused');
     clearTimerInterval();
 
-    // Update Live Activity to show paused state
+    // Clear segment start time since we're paused
+    segmentStartTimeRef.current = null;
+
+    // Update Live Activity to show paused state (no startTime needed when paused)
     LiveActivity.updateActivity(currentElapsed, true).catch((error) => {
       console.warn('Failed to update Live Activity (pause):', error);
     });
@@ -89,8 +93,13 @@ export function useTimer(): UseTimerReturn {
     const currentElapsed = elapsedRef.current;
     setTimerStatus('running');
 
-    // Update Live Activity to show running state
-    LiveActivity.updateActivity(currentElapsed, false).catch((error) => {
+    // Set new segment start time for resumed session
+    // The segment start time needs to be adjusted to account for already accumulated time
+    const now = Date.now();
+    segmentStartTimeRef.current = now;
+
+    // Update Live Activity to show running state with new segment start time
+    LiveActivity.updateActivity(currentElapsed, false, now).catch((error) => {
       console.warn('Failed to update Live Activity (resume):', error);
     });
 
@@ -105,11 +114,7 @@ export function useTimer(): UseTimerReturn {
       elapsed += 1;
       elapsedRef.current = elapsed;
       setElapsedSeconds(elapsed);
-
-      // Update Live Activity every second
-      LiveActivity.updateActivity(elapsed, false).catch((error) => {
-        console.warn('Failed to update Live Activity:', error);
-      });
+      // Note: Don't update Live Activity every second - SwiftUI Text(timerInterval:) handles counting automatically
     }, 1000);
   }, []);
 
@@ -133,6 +138,7 @@ export function useTimer(): UseTimerReturn {
     setSessionId(null);
     sessionIdRef.current = null;
     elapsedRef.current = 0;
+    segmentStartTimeRef.current = null;
 
     // End Live Activity
     LiveActivity.endActivity().catch((error) => {

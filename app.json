@@ -14,7 +14,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kanoa.studytimer"
+      "bundleIdentifier": "com.kanoa.studytimer",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "studytimer"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +38,8 @@
     },
     "plugins": [
       "expo-dev-client",
-      "./plugins/withLiveActivities"
+      "./plugins/withLiveActivities",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

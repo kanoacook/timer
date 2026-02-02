@@ -27,7 +27,7 @@ export function isSupported(): boolean {
  * Start a new Live Activity for a study session
  * @param sessionId - Unique identifier for the session
  * @param title - Display title for the session
- * @returns Promise with success status and activity ID if successful
+ * @returns Promise with success status, activity ID, and start time if successful
  */
 export async function startActivity(
   sessionId: string,
@@ -41,16 +41,18 @@ export async function startActivity(
 
 /**
  * Update the current Live Activity state
- * @param elapsedSeconds - Total elapsed seconds
+ * @param accumulatedSeconds - Total accumulated seconds
  * @param isPaused - Whether the timer is currently paused
+ * @param startTime - Optional JS timestamp (ms) for when the current running segment started
  * @returns Promise resolving to true if update was successful
  */
 export async function updateActivity(
-  elapsedSeconds: number,
-  isPaused: boolean
+  accumulatedSeconds: number,
+  isPaused: boolean,
+  startTime?: number
 ): Promise<boolean> {
   if (!LiveActivityModule) return false;
-  return LiveActivityModule.updateActivity(elapsedSeconds, isPaused);
+  return LiveActivityModule.updateActivity(accumulatedSeconds, isPaused, startTime ?? null);
 }
 
 /**

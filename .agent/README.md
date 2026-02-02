@@ -17,9 +17,10 @@ Welcome to the Study Timer project documentation. This folder contains all criti
 ## Quick Start
 
 1. **New to the project?** Start with [System/project_architecture.md](System/project_architecture.md)
-2. **Setting up a device for testing?** See [System/demo_setup.md](System/demo_setup.md)
-3. **Understanding the data layer?** Read [System/data_architecture.md](System/data_architecture.md)
-4. **Checking implementation progress?** View [System/implementation_status.md](System/implementation_status.md)
+2. **Building with Live Activities?** Follow [SOP/live_activity_build.md](SOP/live_activity_build.md)
+3. **Setting up a device for testing?** See [System/demo_setup.md](System/demo_setup.md)
+4. **Understanding the data layer?** Read [System/data_architecture.md](System/data_architecture.md)
+5. **Checking implementation progress?** View [System/implementation_status.md](System/implementation_status.md)
 
 ---
 
@@ -80,13 +81,12 @@ Best practices for common development tasks.
 
 | Document | Description |
 |----------|-------------|
-| *(None yet - add as patterns emerge)* | |
+| [SOP/live_activity_build.md](SOP/live_activity_build.md) | **Complete guide** for building & testing Live Activities, including widget extension setup, troubleshooting, and API reference |
 
 **Recommended SOPs to create:**
 - How to add a new screen/route
 - How to add a database migration
 - How to update the native bridge
-- How to test Live Activities locally
 
 ---
 
@@ -112,7 +112,7 @@ A React Native/Expo iOS study timer app that displays a **Live Activity** on the
 |-----------|------------|--------|
 | Framework | React Native + Expo | Active |
 | State | React Hooks (useTimer) | Active (Zustand planned) |
-| Database | expo-sqlite | Planned |
+| Database | Supabase (PostgreSQL) | **Implemented** |
 | Native Bridge | Expo Modules | **Implemented** |
 | iOS Integration | ActivityKit (Swift/SwiftUI) | **Implemented** |
 
@@ -146,4 +146,4 @@ When updating documentation:
 
 ---
 
-*Last updated: 2026-01-30*
+*Last updated: 2026-02-02*
